@@ -62,7 +62,7 @@ def augmentDataset(imgPath, labPath, augPath, whitePixThd, numOfTiles, tileSize)
     for imgName in os.listdir(imgPath):
         print(imgName)
         image = cv2.imread(os.path.join(imgPath, imgName))
-        mask = cv2.imread(os.path.join(labPath, imgName[:-1]), cv2.IMREAD_GRAYSCALE)
+        mask = cv2.imread(os.path.join(labPath, imgName[:-1]))
 
         if (invalidImage(image, whitePixThd)):
             print ('Too many white pixels')
