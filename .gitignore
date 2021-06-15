@@ -131,3 +131,7 @@ dmypy.json
 # Ignore data folders
 Dataset/
 AugmentedDataset/
+Models/
+
+# Ignore Hydra Folder
+outputs/

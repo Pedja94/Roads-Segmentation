@@ -1,0 +1,20 @@
+paths:
+  train:
+      images: './AugmentedDataset/train/images/'
+      labels: './AugmentedDataset/train/labels/'
+  val:
+      images: './AugmentedDataset/val/images/'
+      labels: './AugmentedDataset/val/labels/'
+  test:
+      images: './AugmentedDataset/test/images/'
+      labels: './AugmentedDataset/test/labels/'
+
+training:
+  imageSize: [256, 256, 3]
+  lr: 0.0001
+  batchSize: 16
+  epochs: 1
+
+output:
+  model: 'best_model.h5'
+  log: 'log.csv'
