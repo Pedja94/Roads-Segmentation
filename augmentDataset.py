@@ -51,7 +51,7 @@ def augImage(image, mask):
     return image, mask
 
 
-def augmentDataset(imgPath, labPath, augPath, whitePixThd, numOfTiles, tileSize):
+def augmentDataset(imgPath, labPath, augPath, whitePixThd, maskValPixThd, numOfTiles, tileSize):
 
     augImgPath = os.path.join(augPath, 'images/')
     augMaskPath = os.path.join(augPath, 'labels/')
@@ -72,6 +72,8 @@ def augmentDataset(imgPath, labPath, augPath, whitePixThd, numOfTiles, tileSize)
             newImg, newMask = randomCrop(image, mask, tileSize)
             newImg, newMask = augImage(newImg, newMask)
 
+            _ ,newImg = cv2.threshold(newMask, maskValPixThd, 255, cv2.THRESH_BINARY)
+
             newName = os.path.splitext(imgName)[0] + '_' + str(it) + '.png'
 
             cv2.imwrite(os.path.join(augImgPath, newName), newImg)
@@ -79,7 +81,7 @@ def augmentDataset(imgPath, labPath, augPath, whitePixThd, numOfTiles, tileSize)
 
 
 def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPath, valLabPath,
-                    augDatasetPath, whitePixThd, numOfTiles, tileSize):
+                    augDatasetPath, whitePixThd, maskValPixThd, numOfTiles, tileSize):
 
     augTrainPath = os.path.join(augDatasetPath, 'train/')
 
@@ -89,7 +91,7 @@ def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPa
     os.mkdir(augTrainPath)
 
     print('Create train dataset in ' + augTrainPath)
-    augmentDataset(trainImgPath, trainLabPath, augTrainPath, whitePixThd, numOfTiles, tileSize)
+    augmentDataset(trainImgPath, trainLabPath, augTrainPath, whitePixThd, maskValPixThd, numOfTiles, tileSize)
 
     augValPath = os.path.join(augDatasetPath, 'val/')
 
@@ -99,7 +101,7 @@ def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPa
     os.mkdir(augValPath)
 
     print('Create validation dataset in ' + augValPath)
-    augmentDataset(valImgPath, valLabPath, augValPath, whitePixThd, numOfTiles, tileSize)
+    augmentDataset(valImgPath, valLabPath, augValPath, whitePixThd, maskValPixThd, numOfTiles, tileSize)
 
     augTestPath = os.path.join(augDatasetPath, 'test/')
 
@@ -109,7 +111,7 @@ def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPa
     os.mkdir(augTestPath)
 
     print('Create test dataset in ' + augTestPath)
-    augmentDataset(testImgPath, testLabPath, augTestPath, whitePixThd, numOfTiles, tileSize)
+    augmentDataset(testImgPath, testLabPath, augTestPath, whitePixThd, maskValPixThd, numOfTiles, tileSize)
 
 
 def main():
@@ -124,13 +126,14 @@ def main():
     parser.add_argument('--testLabels', type=str, default='./Dataset/tiff/test_labels/', help="Labels from test set.")
     parser.add_argument('--augDataset', type=str, default='./AugmentedDataset/', help="Labels from validation set.")
     parser.add_argument('--whitePixThd', type=float, default=0.50, help="Precentage of white pixels on image.")
+    parser.add_argument('--maskValPixThd', type=int, default=100, help="Threshold for pixels in mask image.")
     parser.add_argument('--numOfTiles', type=int, default=25, help="Number of tiles extracted from one image.")
     parser.add_argument('--tileSize', type=int, default=256, help="Tile size(both height and width).")
 
     args = parser.parse_args()
 
     createDataset(args.trainImages, args.trainLabels, args.testImages, args.testLabels, args.valImages, args.valLabels,
-                    args.augDataset, args.whitePixThd, args.numOfTiles, args.tileSize)
+                    args.augDataset, args.whitePixThd, args.maskValPixThd, args.numOfTiles, args.tileSize)
 
 
 if __name__ == "__main__":

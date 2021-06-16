@@ -128,11 +128,10 @@ def unet_64_512(imgSize):
     conv4 = Dropout(0.2) (conv4)
     conv4 = Conv2D(512, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (conv4)
     conv4 = BatchNormalization() (conv4)
-    pooling4 = MaxPooling2D(pool_size=(2, 2)) (conv4)
 
 
     upsample5 = Conv2DTranspose(256, (2, 2), strides=(2, 2), padding='same') (conv4)
-    upsample5 = concatenate([upsample5, conv4])
+    upsample5 = concatenate([upsample5, conv3])
     conv5 = Conv2D(256, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (upsample5)
     conv5 = BatchNormalization() (conv5)
     conv5 = Dropout(0.2) (conv5)
@@ -140,7 +139,7 @@ def unet_64_512(imgSize):
     conv5 = BatchNormalization() (conv5)
 
     upsample6 = Conv2DTranspose(128, (2, 2), strides=(2, 2), padding='same') (conv5)
-    upsample6 = concatenate([upsample6, conv3])
+    upsample6 = concatenate([upsample6, conv2])
     conv6 = Conv2D(128, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (upsample6)
     conv6 = BatchNormalization() (conv6)
     conv6 = Dropout(0.2) (conv6)
@@ -148,7 +147,7 @@ def unet_64_512(imgSize):
     conv6 = BatchNormalization() (conv6)
 
     upsample7 = Conv2DTranspose(64, (2, 2), strides=(2, 2), padding='same') (conv6)
-    upsample7 = concatenate([upsample7, conv2])
+    upsample7 = concatenate([upsample7, conv1])
     conv7 = Conv2D(64, (3, 3), activation='relu', kernel_initializer='he_normal', padding='same') (upsample7)
     conv7 = BatchNormalization() (conv7)
     conv7 = Dropout(0.1) (conv7)
