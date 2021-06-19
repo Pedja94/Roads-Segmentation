@@ -1,16 +1,10 @@
-import argparse
 import os
 import cv2
-import numpy as np
 import random
 
-def invalidImage(image, whitePixThd):
-
-    nTotalPix = image.shape[0] * image.shape[1]
-    nWhitePix = np.sum(image[:, :] == [255, 255, 255])
-
-    return (nWhitePix / nTotalPix) > whitePixThd
-
+import hydra
+from hydra.utils import to_absolute_path
+from omegaconf import DictConfig
 
 def randomCrop(image, mask, tileSize):
 
@@ -51,7 +45,7 @@ def augImage(image, mask):
     return image, mask
 
 
-def augmentDataset(imgPath, labPath, augPath, whitePixThd, maskValPixThd, numOfTiles, tileSize):
+def augmentDataset(imgPath, labPath, images, augPath, maskValPixThd, numOfTiles, tileSize):
 
     augImgPath = os.path.join(augPath, 'images/')
     augMaskPath = os.path.join(augPath, 'labels/')
@@ -59,20 +53,16 @@ def augmentDataset(imgPath, labPath, augPath, whitePixThd, maskValPixThd, numOfT
     os.mkdir(augImgPath)
     os.mkdir(augMaskPath)
 
-    for imgName in os.listdir(imgPath):
+    for imgName in images:
         print(imgName)
         image = cv2.imread(os.path.join(imgPath, imgName))
         mask = cv2.imread(os.path.join(labPath, imgName[:-1]))
-
-        if (invalidImage(image, whitePixThd)):
-            print ('Too many white pixels')
-            continue
 
         for it in range(numOfTiles):
             newImg, newMask = randomCrop(image, mask, tileSize)
             newImg, newMask = augImage(newImg, newMask)
 
-            _ ,newImg = cv2.threshold(newMask, maskValPixThd, 255, cv2.THRESH_BINARY)
+            _ ,newMask = cv2.threshold(newMask, maskValPixThd, 255, cv2.THRESH_BINARY)
 
             newName = os.path.splitext(imgName)[0] + '_' + str(it) + '.png'
 
@@ -80,8 +70,14 @@ def augmentDataset(imgPath, labPath, augPath, whitePixThd, maskValPixThd, numOfT
             cv2.imwrite(os.path.join(augMaskPath, newName), newMask)
 
 
-def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPath, valLabPath,
-                    augDatasetPath, whitePixThd, maskValPixThd, numOfTiles, tileSize):
+def createDataset(imgPath, labPath, augDatasetPath, trainP, valP, testP, maskValPixThd, numOfTiles, tileSize):
+
+    if (not (trainP + valP + testP == 100)):
+        print('Invalid split for train validation and test sets.')
+        return
+
+    images = os.listdir(imgPath)
+    random.shuffle(images)
 
     augTrainPath = os.path.join(augDatasetPath, 'train/')
 
@@ -90,8 +86,10 @@ def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPa
 
     os.mkdir(augTrainPath)
 
+    trainNum = int((trainP / 100.) * len(images))
+
     print('Create train dataset in ' + augTrainPath)
-    augmentDataset(trainImgPath, trainLabPath, augTrainPath, whitePixThd, maskValPixThd, numOfTiles, tileSize)
+    augmentDataset(imgPath, labPath, images[:trainNum], augTrainPath, maskValPixThd, numOfTiles, tileSize)
 
     augValPath = os.path.join(augDatasetPath, 'val/')
 
@@ -100,8 +98,10 @@ def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPa
 
     os.mkdir(augValPath)
 
+    valNum = int((valP / 100.) * len(images))
+
     print('Create validation dataset in ' + augValPath)
-    augmentDataset(valImgPath, valLabPath, augValPath, whitePixThd, maskValPixThd, numOfTiles, tileSize)
+    augmentDataset(imgPath, labPath, images[trainNum:trainNum+valNum], augValPath, maskValPixThd, numOfTiles, tileSize)
 
     augTestPath = os.path.join(augDatasetPath, 'test/')
 
@@ -111,29 +111,23 @@ def createDataset(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPa
     os.mkdir(augTestPath)
 
     print('Create test dataset in ' + augTestPath)
-    augmentDataset(testImgPath, testLabPath, augTestPath, whitePixThd, maskValPixThd, numOfTiles, tileSize)
+    augmentDataset(imgPath, labPath, images[trainNum+valNum:], augTestPath, maskValPixThd, numOfTiles, tileSize)
 
 
-def main():
+@hydra.main(config_path='config', config_name='augment.yaml')
+def main(cfg: DictConfig):
 
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument('--trainImages', type=str, default='./Dataset/tiff/train/', help="Images from train set.")
-    parser.add_argument('--trainLabels', type=str, default='./Dataset/tiff/train_labels/', help="Labels from train set.")
-    parser.add_argument('--valImages', type=str, default='./Dataset/tiff/val/', help="Images from validation set.")
-    parser.add_argument('--valLabels', type=str, default='./Dataset/tiff/val_labels/', help="Labels from validation set.")
-    parser.add_argument('--testImages', type=str, default='./Dataset/tiff/test/', help="Images from test set.")
-    parser.add_argument('--testLabels', type=str, default='./Dataset/tiff/test_labels/', help="Labels from test set.")
-    parser.add_argument('--augDataset', type=str, default='./AugmentedDataset/', help="Labels from validation set.")
-    parser.add_argument('--whitePixThd', type=float, default=0.50, help="Precentage of white pixels on image.")
-    parser.add_argument('--maskValPixThd', type=int, default=100, help="Threshold for pixels in mask image.")
-    parser.add_argument('--numOfTiles', type=int, default=25, help="Number of tiles extracted from one image.")
-    parser.add_argument('--tileSize', type=int, default=256, help="Tile size(both height and width).")
-
-    args = parser.parse_args()
-
-    createDataset(args.trainImages, args.trainLabels, args.testImages, args.testLabels, args.valImages, args.valLabels,
-                    args.augDataset, args.whitePixThd, args.maskValPixThd, args.numOfTiles, args.tileSize)
+    createDataset(
+      to_absolute_path(cfg.paths.images),
+      to_absolute_path(cfg.paths.labels),
+      to_absolute_path(cfg.paths.aug_path), 
+      cfg.split.train,
+      cfg.split.validation,
+      cfg.split.test,
+      cfg.params.pixel_thd,
+      cfg.params.tile_num,
+      cfg.params.tile_size
+      )
 
 
 if __name__ == "__main__":

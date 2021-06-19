@@ -1,0 +1,5 @@
+paths:
+  dataset:
+      images: './Dataset/tiff/train/'
+      labels: './Dataset/tiff/train_labels/'
+  delete_file: './imgList.txt'

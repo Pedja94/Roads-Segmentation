@@ -1,0 +1,14 @@
+paths:
+  images: './Dataset/tiff/images/'
+  labels: './Dataset/tiff/labels/'
+  aug_path: './AugmentedDataset/'
+
+split:
+  train: 70
+  validation: 20
+  test: 10
+
+params:
+  pixel_thd: 100
+  tile_num: 40 
+  tile_size: 256

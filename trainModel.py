@@ -3,7 +3,6 @@ from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint, Re
 from tensorflow.python.keras.models import load_model
 import tensorflow as tf
 
-import argparse
 import os
 
 import cv2
@@ -122,8 +121,8 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
 def main(cfg: DictConfig):
 
     createAndTrainModel(
-      to_absolute_path(cfg.paths.val.images),
-      to_absolute_path(cfg.paths.val.labels),
+      to_absolute_path(cfg.paths.train.images),
+      to_absolute_path(cfg.paths.train.labels),
       to_absolute_path(cfg.paths.test.images),
       to_absolute_path(cfg.paths.test.labels),
       to_absolute_path(cfg.paths.val.images),
