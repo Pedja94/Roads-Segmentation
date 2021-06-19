@@ -9,7 +9,7 @@ import cv2
 import numpy as np
 import hydra
 from hydra.utils import to_absolute_path
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
 
 import models 
 
@@ -27,7 +27,6 @@ def load_data(imgPath, labPath):
 
 def generator(img_dir, label_dir, batch_size, input_size):
     list_images = os.listdir(img_dir)
-    # shuffle(list_images) #Randomize the choice of batches
     ids_train_split = range(len(list_images))
 
     while True:
@@ -59,7 +58,6 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
                         imageSize, learningRate, batchSize, epochs, modelName, logFile):
 
     model = models.unet_16_256([imageSize, imageSize, 3])
-    #model.summary()
 
     opt = tf.keras.optimizers.Adam(learning_rate=learningRate)
 
@@ -97,7 +95,7 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
                               verbose=1,
                               callbacks= [checkpointer, lr_reducer, logger],
                               validation_data=generator(valImgPath, valLabPath, batchSize, [imageSize, imageSize, 3]),
-                              validation_steps=1,
+                              validation_steps=len(os.listdir(valImgPath))/batchSize,
                               class_weight=None,
                               max_queue_size=10,
                               workers=1
@@ -112,8 +110,7 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
     test_gen = generator(testImgPath, testLabPath, 1, [imageSize, imageSize, 3])
     model.evaluate(
       test_gen,
-      #steps =len(os.listdir(testImgPath))/batchSize,
-      steps=1
+      steps =len(os.listdir(testImgPath))/batchSize,
     )
 
 
