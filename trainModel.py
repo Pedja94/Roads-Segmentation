@@ -55,9 +55,12 @@ def generator(img_dir, label_dir, batch_size, input_size):
 
 
 def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPath, valLabPath,
-                        imageSize, learningRate, batchSize, epochs, modelName, logFile):
+                        imageSize, learningRate, batchSize, epochs, outputs):
 
     model = models.unet_16_256([imageSize, imageSize, 3])
+
+    with open(outputs.modelSummary, 'w') as f:
+      model.summary(print_fn=lambda x: f.write(x + '\n'))
 
     opt = tf.keras.optimizers.Adam(learning_rate=learningRate)
 
@@ -66,12 +69,12 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
       loss=models.soft_dice_loss,
       metrics=[models.iou_coef])
 
-    logger = CSVLogger(logFile,
+    logger = CSVLogger(outputs.log,
       separator=',',
       append=True
     )
 
-    checkpointer = ModelCheckpoint(modelName,
+    checkpointer = ModelCheckpoint(outputs.model,
                              monitor="val_loss",
                              mode="min",
                              save_best_only = True,
@@ -101,7 +104,7 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
                               workers=1
                               )
 
-    model = load_model(modelName, custom_objects={'soft_dice_loss': models.soft_dice_loss, 'iou_coef': models.iou_coef})
+    model = load_model(outputs.model, custom_objects={'soft_dice_loss': models.soft_dice_loss, 'iou_coef': models.iou_coef})
     model.compile(
       optimizer=opt,
       loss=models.soft_dice_loss,
@@ -128,8 +131,7 @@ def main(cfg: DictConfig):
       cfg.training.lr,
       cfg.training.batchSize,
       cfg.training.epochs,
-      cfg.output.model,
-      cfg.output.log
+      cfg.outputs
       )
 
 
