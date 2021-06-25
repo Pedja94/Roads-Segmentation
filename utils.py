@@ -5,7 +5,72 @@ from tensorflow.python.keras.layers.convolutional import Conv2D, Conv2DTranspose
 from tensorflow.python.keras.layers.pooling import MaxPooling2D
 from tensorflow.python.keras.layers.merge import concatenate
 from tensorflow.python.keras.layers import BatchNormalization
+import tensorflow.keras.applications as tf_app 
+from keras_applications import imagenet_utils
 from keras import backend as K
+import numpy as np
+import cv2
+import os
+
+def get_preprocess_fn(backboneName):
+
+  fn_dict = {
+    'resnet18': tf_app.imagenet_utils.preprocess_input,
+    'resnet34': tf_app.imagenet_utils.preprocess_input,
+    'resnet50': tf_app.resnet50.preprocess_input,
+    'vgg16': tf_app.vgg16.preprocess_input,
+    'inceptionv3': tf_app.inception_v3.preprocess_input,
+    'inceptionresnetv2': tf_app.inception_resnet_v2.preprocess_input
+  }
+
+  return fn_dict[backboneName]
+
+
+def load_data(imgPath, labPath):
+
+  images = []
+  masks = []
+
+  for imgName in os.listdir(imgPath):
+    images.append(cv2.imread(os.path.join(imgPath, imgName)))
+    masks.append(cv2.imread(os.path.join(labPath, imgName)))
+
+  return np.array(images), np.array(masks)
+
+
+def generator(img_dir, label_dir, batch_size, preproces_fn = None):
+    list_images = os.listdir(img_dir)
+    ids_train_split = range(len(list_images))
+
+    while True:
+      for start in range(0, len(ids_train_split), batch_size):
+        x_batch = []
+        y_batch = []
+
+        end = min(start + batch_size, len(ids_train_split))
+        ids_train_batch = ids_train_split[start:end]
+
+        for id in ids_train_batch:
+          img_name = os.path.join(img_dir,str(list_images[id]))
+          mask_name = os.path.join(label_dir, str(list_images[id]))
+
+          img = cv2.imread(img_name) 
+          cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+          mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)      
+
+          x_batch += [img]
+          y_batch += [mask]    
+
+        x_batch = np.array(x_batch)
+        y_batch = np.array(y_batch) / 255.
+
+        if (preproces_fn is not None):
+          x_batch = preproces_fn(x_batch)
+        else:
+          x_batch = x_batch / 255.
+
+        yield x_batch, np.expand_dims(y_batch, -1)
+
 
 def iou_coef(y_true, y_pred, smooth=1):
   intersection = K.sum(K.abs(y_true * y_pred), axis=[1,2,3])
@@ -14,14 +79,17 @@ def iou_coef(y_true, y_pred, smooth=1):
   
   return iou
 
+
 def dice_coef(y_true, y_pred, smooth = 1):
     y_true_f = K.flatten(y_true)
     y_pred_f = K.flatten(y_pred)
     intersection = K.sum(y_true_f * y_pred_f)
     return (2. * intersection + smooth) / (K.sum(y_true_f) + K.sum(y_pred_f) + smooth)
 
+
 def soft_dice_loss(y_true, y_pred):
     return 1-dice_coef(y_true, y_pred)
+
 
 def unet_16_256(imgSize):
     inputs = Input(imgSize)
@@ -98,6 +166,7 @@ def unet_16_256(imgSize):
     model = Model(inputs=[inputs], outputs=[outputs])
 
     return model
+
 
 def unet_64_512(imgSize):
     inputs = Input(imgSize)

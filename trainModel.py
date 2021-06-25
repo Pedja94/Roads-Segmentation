@@ -1,63 +1,36 @@
-import keras
 from tensorflow.python.keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau, CSVLogger
 from tensorflow.python.keras.models import load_model
 import tensorflow as tf
 
 import os
 
-import cv2
-import numpy as np
 import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 
-import models 
+import utils 
+import segmentation_models as sm
+from segmentation_models import get_preprocessing
 
-def load_data(imgPath, labPath):
+def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPath, valLabPath, modelPath,
+                        modelBackbone, encoderWeights, encoderFreeze, decoderFilters,
+                        imageSize, learningRate, batchSize, epochs, loadTrainedModel, outputs):
 
-  images = []
-  masks = []
+    sm.set_framework('tf.keras')
 
-  for imgName in os.listdir(imgPath):
-    images.append(cv2.imread(os.path.join(imgPath, imgName)))
-    masks.append(cv2.imread(os.path.join(labPath, imgName)))
+    #model = utils.unet_16_256([imageSize, imageSize, 3])
+    if loadTrainedModel:
+      model = load_model(modelPath, custom_objects={'dice_loss': sm.losses.dice_loss, 'iou_score': sm.metrics.iou_score})
+    else:
+      model = sm.Unet(backbone_name=modelBackbone, 
+                      input_shape=[None, None, 3], 
+                      classes=1, 
+                      activation='sigmoid',
+                      encoder_weights=encoderWeights,
+                      encoder_freeze=encoderFreeze,
+                      decoder_filters=decoderFilters)
 
-  return np.array(images), np.array(masks)
-
-
-def generator(img_dir, label_dir, batch_size, input_size):
-    list_images = os.listdir(img_dir)
-    ids_train_split = range(len(list_images))
-
-    while True:
-      for start in range(0, len(ids_train_split), batch_size):
-        x_batch = []
-        y_batch = []
-
-        end = min(start + batch_size, len(ids_train_split))
-        ids_train_batch = ids_train_split[start:end]
-
-        for id in ids_train_batch:
-          img_name = os.path.join(img_dir,str(list_images[id]))
-          mask_name = os.path.join(label_dir, str(list_images[id]))
-
-          img = cv2.imread(img_name) 
-          mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)               
-          
-          x_batch += [img]
-          y_batch += [mask]    
-
-
-        x_batch = np.array(x_batch) / 255.
-        y_batch = np.array(y_batch) / 255.
-
-        yield x_batch, np.expand_dims(y_batch, -1)
-
-
-def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, valImgPath, valLabPath,
-                        imageSize, learningRate, batchSize, epochs, outputs):
-
-    model = models.unet_16_256([imageSize, imageSize, 3])
+    preprocessInput = get_preprocessing(modelBackbone)
 
     with open(outputs.modelSummary, 'w') as f:
       model.summary(print_fn=lambda x: f.write(x + '\n'))
@@ -66,8 +39,8 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
 
     model.compile(
       optimizer=opt,
-      loss=models.soft_dice_loss,
-      metrics=[models.iou_coef])
+      loss=sm.losses.dice_loss,
+      metrics=[sm.metrics.IOUScore(threshold=0.5)])
 
     logger = CSVLogger(outputs.log,
       separator=',',
@@ -92,25 +65,25 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
                                verbose=1,
                                epsilon=1e-4)
                          
-    history = model.fit(generator(trainImgPath, trainLabPath, batchSize, [imageSize, imageSize, 3]),                              
+    history = model.fit(utils.generator(trainImgPath, trainLabPath, batchSize, preprocessInput),                              
                               steps_per_epoch=len(os.listdir(trainImgPath))/batchSize,
                               epochs=epochs,
                               verbose=1,
                               callbacks= [checkpointer, lr_reducer, logger],
-                              validation_data=generator(valImgPath, valLabPath, batchSize, [imageSize, imageSize, 3]),
+                              validation_data=utils.generator(valImgPath, valLabPath, batchSize, preprocessInput),
                               validation_steps=len(os.listdir(valImgPath))/batchSize,
                               class_weight=None,
                               max_queue_size=10,
                               workers=1
                               )
 
-    model = load_model(outputs.model, custom_objects={'soft_dice_loss': models.soft_dice_loss, 'iou_coef': models.iou_coef})
+    model = load_model(outputs.model, custom_objects={'dice_loss': sm.losses.dice_loss, 'iou_score': sm.metrics.iou_score})
     model.compile(
       optimizer=opt,
-      loss=models.soft_dice_loss,
-      metrics=[models.iou_coef])
+      loss=sm.losses.dice_loss,
+      metrics=[sm.metrics.IOUScore(threshold=0.5)])
     
-    test_gen = generator(testImgPath, testLabPath, 1, [imageSize, imageSize, 3])
+    test_gen = utils.generator(testImgPath, testLabPath, batchSize, preprocessInput)
     model.evaluate(
       test_gen,
       steps =len(os.listdir(testImgPath))/batchSize,
@@ -127,10 +100,16 @@ def main(cfg: DictConfig):
       to_absolute_path(cfg.paths.test.labels),
       to_absolute_path(cfg.paths.val.images),
       to_absolute_path(cfg.paths.val.labels), 
+      to_absolute_path(cfg.paths.model), 
+      cfg.model.backbone,
+      cfg.model.encoder_weights,
+      cfg.model.encoder_freeze,
+      cfg.model.decoder_filters,
       cfg.training.imageSize[0],
       cfg.training.lr,
       cfg.training.batchSize,
       cfg.training.epochs,
+      cfg.training.load_model,
       cfg.outputs
       )
 
