@@ -11,6 +11,7 @@ from keras import backend as K
 import numpy as np
 import cv2
 import os
+import random
 
 def get_preprocess_fn(backboneName):
 
@@ -64,9 +65,9 @@ def load_data(imgPath, labPath):
 def generator(img_dir, label_dir, batch_size, preproces_fn = None, shuffle=True):
     list_images = os.listdir(img_dir)
     ids_train_split = list(range(len(list_images)))
-    if shuffle:
-      np.random.shuffle(ids_train_split)
+    np.random.shuffle(ids_train_split)
 
+    
     current_batch = 0
     while True:
       for start in range(0, len(ids_train_split), batch_size):
