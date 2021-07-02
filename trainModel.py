@@ -64,13 +64,13 @@ def createAndTrainModel(trainImgPath, trainLabPath, testImgPath, testLabPath, va
                                patience=4,
                                verbose=1,
                                epsilon=1e-4)
-                         
-    history = model.fit(utils.generator(trainImgPath, trainLabPath, batchSize, preprocessInput),                              
+
+    history = model.fit(utils.generator(trainImgPath, trainLabPath, batchSize, preprocessInput, shuffle=True),                              
                               steps_per_epoch=len(os.listdir(trainImgPath))/batchSize,
                               epochs=epochs,
                               verbose=1,
                               callbacks= [checkpointer, lr_reducer, logger],
-                              validation_data=utils.generator(valImgPath, valLabPath, batchSize, preprocessInput),
+                              validation_data=utils.generator(valImgPath, valLabPath, batchSize, preprocessInput, shuffle=False),
                               validation_steps=len(os.listdir(valImgPath))/batchSize,
                               class_weight=None,
                               max_queue_size=10,

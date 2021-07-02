@@ -26,6 +26,29 @@ def get_preprocess_fn(backboneName):
   return fn_dict[backboneName]
 
 
+def one_hot_encode(label):
+    """
+    Convert a segmentation image label array to one-hot format
+    by replacing each pixel value with a vector of length num_classes
+    # Arguments
+        label: The 2D array segmentation image label
+        label_values
+        
+    # Returns
+        A 2D array with the same width and hieght as the input, but
+        with a depth size of num_classes
+    """
+    label_values = [[  0,   0,   0],[255, 255, 255]]
+    semantic_map = []
+    for colour in label_values:
+        equality = np.equal(label, colour)
+        class_map = np.all(equality, axis = -1)
+        semantic_map.append(class_map)
+    semantic_map = np.stack(semantic_map, axis=-1)
+
+    return semantic_map
+
+
 def load_data(imgPath, labPath):
 
   images = []
@@ -38,10 +61,13 @@ def load_data(imgPath, labPath):
   return np.array(images), np.array(masks)
 
 
-def generator(img_dir, label_dir, batch_size, preproces_fn = None):
+def generator(img_dir, label_dir, batch_size, preproces_fn = None, shuffle=True):
     list_images = os.listdir(img_dir)
-    ids_train_split = range(len(list_images))
+    ids_train_split = list(range(len(list_images)))
+    if shuffle:
+      np.random.shuffle(ids_train_split)
 
+    current_batch = 0
     while True:
       for start in range(0, len(ids_train_split), batch_size):
         x_batch = []
@@ -50,13 +76,20 @@ def generator(img_dir, label_dir, batch_size, preproces_fn = None):
         end = min(start + batch_size, len(ids_train_split))
         ids_train_batch = ids_train_split[start:end]
 
+
+        current_batch += 1
+        if current_batch == (len(ids_train_split) / batch_size):
+          np.random.shuffle(ids_train_split)
+          current_batch = 0
+
+
         for id in ids_train_batch:
           img_name = os.path.join(img_dir,str(list_images[id]))
           mask_name = os.path.join(label_dir, str(list_images[id]))
 
           img = cv2.imread(img_name) 
           cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-          mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)      
+          mask = cv2.imread(mask_name, cv2.IMREAD_GRAYSCALE)     
 
           x_batch += [img]
           y_batch += [mask]    
