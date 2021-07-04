@@ -132,6 +132,10 @@ dmypy.json
 Dataset/
 AugmentedDataset/
 Models/
+Logging/
 
 # Ignore Hydra Folder
 outputs/
+
+# Ignore Jupyer
+.ipynb*
