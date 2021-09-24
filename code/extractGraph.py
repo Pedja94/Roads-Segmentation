@@ -27,10 +27,12 @@ def createGraph(imagesPath, resultsPath, modelPath, modelBackbone, modeLR):
         pred = model(np.expand_dims(img, axis=0))
         pred = np.squeeze(pred, axis=0)
 
-        #post process prediction
-        ppPred = utils.postProcessPrediction(pred)
+        #build skeleton
+        ppPred, predSkeleton = utils.buildSkeleton(pred)
 
-        utils.showImages(img, pred)
+        G = utils.buildGraph(predSkeleton)
+
+        utils.showImages([img, pred, ppPred, predSkeleton])
 
 @hydra.main(config_path='config', config_name='extractGraph.yaml')
 def main(cfg: DictConfig):
