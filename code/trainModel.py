@@ -8,7 +8,7 @@ import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 
-import utils 
+import trainUtils as utils 
 import segmentation_models as sm
 from segmentation_models import get_preprocessing
 
