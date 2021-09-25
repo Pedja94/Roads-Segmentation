@@ -38,6 +38,7 @@ def showImages(imgList, graph):
 
     #draw graph
     fig.add_subplot(1, numOfImages+1, numOfImages+1)
+    plt.imshow(imgList[0])
     # draw edges by pts
     for (s,e) in graph.edges():
         ps = graph[s][e]['pts']
