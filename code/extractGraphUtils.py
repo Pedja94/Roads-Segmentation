@@ -8,6 +8,9 @@ import numpy as np
 import cv2
 from skimage.morphology import skeletonize
 
+from graphUtils import sknw
+from graphUtils.utils import cleanUpGraph
+
 def loadModel(weightsPath, modelBackbone, modeLR): 
     sm.set_framework('tf.keras')
     model = load_model(
@@ -25,13 +28,25 @@ def loadModel(weightsPath, modelBackbone, modeLR):
 
     return model, preprocessInput
 
-def showImages(imgList):
+def showImages(imgList, graph):
     fig = plt.figure(figsize=(15, 4))
     numOfImages = len(imgList)
 
     for i in range(numOfImages):
-        fig.add_subplot(1, numOfImages, i+1)
+        fig.add_subplot(1, numOfImages+1, i+1)
         plt.imshow(imgList[i])
+
+    #draw graph
+    fig.add_subplot(1, numOfImages+1, numOfImages+1)
+    # draw edges by pts
+    for (s,e) in graph.edges():
+        ps = graph[s][e]['pts']
+        plt.plot(ps[:,1], ps[:,0], 'green')
+    
+    # draw node by o
+    nodes = graph.nodes()
+    ps = np.array([nodes[i]['o'] for i in nodes])
+    plt.plot(ps[:,1], ps[:,0], 'r.')
 
     plt.show()
 
@@ -84,4 +99,12 @@ def buildSkeleton(pred):
     return ppPred, ske
 
 def buildGraph(skeleton):
-    return skeleton
+    #params
+    pix_extent = 256
+    min_spur_length_pix = 10
+
+    G = sknw.build_sknw(skeleton, multi=False)
+
+    #cleanUpGraph(G, pix_extent, min_spur_length_pix)
+
+    return G

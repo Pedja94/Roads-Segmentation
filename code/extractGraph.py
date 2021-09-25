@@ -32,7 +32,7 @@ def createGraph(imagesPath, resultsPath, modelPath, modelBackbone, modeLR):
 
         G = utils.buildGraph(predSkeleton)
 
-        utils.showImages([img, pred, ppPred, predSkeleton])
+        utils.showImages([img, pred, ppPred, predSkeleton], G)
 
 @hydra.main(config_path='config', config_name='extractGraph.yaml')
 def main(cfg: DictConfig):
