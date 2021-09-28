@@ -11,33 +11,57 @@ from skimage.morphology import skeletonize
 from graphUtils import sknw
 from graphUtils.utils import cleanUpGraph
 
-def loadModel(weightsPath, modelBackbone, modeLR): 
+def loadModel(modelsPath, modelsBackbone, modeLR): 
     sm.set_framework('tf.keras')
-    model = load_model(
-        weightsPath, 
-        custom_objects={'dice_loss': sm.losses.dice_loss, 'iou_score': sm.metrics.iou_score})
+    models = []
+    preprocessInputFs = []
 
-    opt = tf.keras.optimizers.Adam(learning_rate=modeLR)
+    for i in range(len(modelsPath)):
 
-    model.compile(
-        optimizer=opt,
-        loss=sm.losses.dice_loss,
-        metrics=[sm.metrics.IOUScore(threshold=0.5)])
-    
-    preprocessInput = get_preprocessing(modelBackbone)
+        model = load_model(
+            modelsPath[i], 
+            custom_objects={'dice_loss': sm.losses.dice_loss, 'iou_score': sm.metrics.iou_score})
 
-    return model, preprocessInput
+        opt = tf.keras.optimizers.Adam(learning_rate=modeLR)
+
+        model.compile(
+            optimizer=opt,
+            loss=sm.losses.dice_loss,
+            metrics=[sm.metrics.IOUScore(threshold=0.5)])
+        
+        preprocessInput = get_preprocessing(modelsBackbone[i])
+
+        models.append(model)
+        preprocessInputFs.append(preprocessInput)
+
+    return models, preprocessInputFs
+
+def getPrediction(img, models, preprocessInputFs):
+    cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    predArray = []
+
+    for i in range(len(models)):
+        imgTmp = np.copy(img)
+        imgTmp = (imgTmp / 255.) if preprocessInputFs[i] is None else preprocessInputFs[i](imgTmp)
+
+        #run inference
+        predTmp = models[i](np.expand_dims(imgTmp, axis=0))
+        predArray.append(np.squeeze(predTmp, axis=0))
+
+    pred = np.mean(predArray, axis=0)
+
+    return pred
 
 def showImages(imgList, graph):
-    fig = plt.figure(figsize=(15, 4))
+    fig = plt.figure(figsize=(8, 8))
     numOfImages = len(imgList)
 
     for i in range(numOfImages):
-        fig.add_subplot(1, numOfImages+1, i+1)
+        fig.add_subplot((numOfImages+1)/2 + 1, (numOfImages+1)/2 + 1, i+1)
         plt.imshow(imgList[i])
 
     #draw graph
-    fig.add_subplot(1, numOfImages+1, numOfImages+1)
+    fig.add_subplot((numOfImages+1)/2 + 1, (numOfImages+1)/2 + 1, numOfImages+1)
     plt.imshow(imgList[0])
     # draw edges by pts
     for (s,e) in graph.edges():
@@ -47,14 +71,15 @@ def showImages(imgList, graph):
     # draw node by o
     nodes = graph.nodes()
     ps = np.array([nodes[i]['o'] for i in nodes])
-    plt.plot(ps[:,1], ps[:,0], 'r.')
+    if len(ps) != 0:
+        plt.plot(ps[:,1], ps[:,0], 'r.')
 
     plt.show()
 
 def postProcess(pred):
     #params
-    kernel_close_size = 3
-    kernel_open_size = 3
+    kernel_close_size = 5
+    kernel_open_size = 5
     thresh = 0.3
 
     kernel_close = np.ones((kernel_close_size, kernel_close_size), np.uint8)
