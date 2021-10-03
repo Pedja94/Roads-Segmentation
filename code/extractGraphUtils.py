@@ -1,3 +1,4 @@
+from numba.core.types.misc import Undefined
 import segmentation_models as sm
 from segmentation_models import get_preprocessing
 from tensorflow.python.keras.models import load_model
@@ -52,7 +53,7 @@ def getPrediction(img, models, preprocessInputFs):
 
     return pred
 
-def showImages(imgList, graph):
+def showImages(imgList, graph = Undefined, graphOverImg = True):
     fig = plt.figure(figsize=(8, 8))
     numOfImages = len(imgList)
 
@@ -61,18 +62,21 @@ def showImages(imgList, graph):
         plt.imshow(imgList[i])
 
     #draw graph
-    fig.add_subplot((numOfImages+1)/2 + 1, (numOfImages+1)/2 + 1, numOfImages+1)
-    plt.imshow(imgList[0])
-    # draw edges by pts
-    for (s,e) in graph.edges():
-        ps = graph[s][e]['pts']
-        plt.plot(ps[:,1], ps[:,0], 'green')
-    
-    # draw node by o
-    nodes = graph.nodes()
-    ps = np.array([nodes[i]['o'] for i in nodes])
-    if len(ps) != 0:
-        plt.plot(ps[:,1], ps[:,0], 'r.')
+    if (graph != Undefined):
+        fig.add_subplot((numOfImages+1)/2 + 1, (numOfImages+1)/2 + 1, numOfImages+1)
+
+        if (graphOverImg and len(imgList) > 0):
+            plt.imshow(imgList[0])
+        # draw edges by pts
+        for (s,e) in graph.edges():
+            ps = graph[s][e]['pts']
+            plt.plot(ps[:,1], ps[:,0], 'red')
+        
+        # draw node by o
+        nodes = graph.nodes()
+        ps = np.array([nodes[i]['o'] for i in nodes])
+        if len(ps) != 0:
+            plt.plot(ps[:,1], ps[:,0], 'b.')
 
     plt.show()
 
@@ -80,7 +84,7 @@ def postProcess(pred):
     #params
     kernel_close_size = 5
     kernel_open_size = 5
-    thresh = 0.3
+    thresh = 0.5
 
     kernel_close = np.ones((kernel_close_size, kernel_close_size), np.uint8)
     kernel_open = np.ones((kernel_open_size, kernel_open_size), np.uint8)
@@ -98,6 +102,11 @@ def postProcess(pred):
     #gradient = cv2.morphologyEx(mask_thresh, cv2.MORPH_GRADIENT, kernel)
     closing_t = cv2.morphologyEx(mask_thresh, cv2.MORPH_CLOSE, kernel_close)
     opening_t = cv2.morphologyEx(closing_t, cv2.MORPH_OPEN, kernel_open)
+
+    blur = cv2.medianBlur(opening_t, kernel_blur)
+    closing_t = cv2.morphologyEx(blur, cv2.MORPH_CLOSE, kernel_close)
+    opening_t = cv2.morphologyEx(closing_t, cv2.MORPH_OPEN, kernel_open)
+
     img = opening_t.astype(np.bool)
 
     return img
