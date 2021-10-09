@@ -2,16 +2,11 @@ import hydra
 from hydra.utils import to_absolute_path
 from omegaconf import DictConfig
 
-import os
 import cv2
-import numpy as np
-import matplotlib.pyplot as plt
-
-import tensorflow as tf
-
+import os
 import extractGraphUtils as utils
 
-def createGraph(imagesPath, resultsPath, modelsPath, modelsBackbone, modeLR):
+def createGraph(imagesPath, resultsPath, modelsPath, modelsBackbone, modeLR, ppParameters):
 
     models, preprocessInputFs = utils.loadModel(modelsPath, modelsBackbone, modeLR)
 
@@ -21,11 +16,11 @@ def createGraph(imagesPath, resultsPath, modelsPath, modelsBackbone, modeLR):
         #run inference
         pred = utils.getPrediction(img, models, preprocessInputFs)
         #build skeleton
-        ppPred, predSkeleton = utils.buildSkeleton(pred)
+        ppPred, predSkeleton = utils.buildSkeleton(pred, ppParameters)
         #build graph
-        G = utils.buildGraph(predSkeleton)
+        G = utils.buildGraph(predSkeleton, ppParameters.min_graph_length_pix, img.shape[0])
 
-        utils.showImages([img, pred, ppPred, predSkeleton], G)
+        utils.showImages([img, pred, ppPred, predSkeleton], G, resultPath=os.path.join(resultsPath, imgName))
 
 @hydra.main(config_path='config', config_name='extractGraph.yaml')
 def main(cfg: DictConfig):
@@ -39,7 +34,8 @@ def main(cfg: DictConfig):
       to_absolute_path(cfg.paths.results),
       model_paths,
       cfg.model.backbones,
-      cfg.model.lr
+      cfg.model.lr,
+      cfg.pp_parameters
       )
 
 

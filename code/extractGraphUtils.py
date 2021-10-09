@@ -10,7 +10,7 @@ import cv2
 from skimage.morphology import skeletonize
 
 from graphUtils import sknw
-from graphUtils.utils import cleanUpGraph
+from graphUtils.utils import cleanUpSmallEdges
 
 def loadModel(modelsPath, modelsBackbone, modeLR): 
     sm.set_framework('tf.keras')
@@ -53,8 +53,8 @@ def getPrediction(img, models, preprocessInputFs):
 
     return pred
 
-def showImages(imgList, graph = Undefined, graphOverImg = True):
-    fig = plt.figure(figsize=(8, 8))
+def showImages(imgList, graph = Undefined, graphOverImg = True, resultPath = './result.png'):
+    fig = plt.figure(figsize=(16, 14))
     numOfImages = len(imgList)
 
     for i in range(numOfImages):
@@ -63,7 +63,7 @@ def showImages(imgList, graph = Undefined, graphOverImg = True):
 
     #draw graph
     if (graph != Undefined):
-        fig.add_subplot((numOfImages+1)/2 + 1, (numOfImages+1)/2 + 1, numOfImages+1)
+        ax = fig.add_subplot((numOfImages+1)/2 + 1, (numOfImages+1)/2 + 1, numOfImages+1)
 
         if (graphOverImg and len(imgList) > 0):
             plt.imshow(imgList[0])
@@ -78,31 +78,28 @@ def showImages(imgList, graph = Undefined, graphOverImg = True):
         if len(ps) != 0:
             plt.plot(ps[:,1], ps[:,0], 'b.')
 
+        #save result
+        extent = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        fig.savefig(resultPath, bbox_inches=extent)
+
     plt.show()
 
-def postProcess(pred):
-    #params
-    kernel_close_size = 5
-    kernel_open_size = 5
-    thresh = 0.5
 
-    kernel_close = np.ones((kernel_close_size, kernel_close_size), np.uint8)
-    kernel_open = np.ones((kernel_open_size, kernel_open_size), np.uint8)
-    kernel_blur = kernel_close_size
+def postProcess(pred, ppParameters):
 
-    # global thresh
-    #mask_thresh = (img > (img_mult * thresh))#.astype(np.bool)        
+    kernel_close = np.ones((ppParameters.kernel_close, ppParameters.kernel_close), np.uint8)
+    kernel_open = np.ones((ppParameters.kernel_open, ppParameters.kernel_open), np.uint8)
+    kernel_blur = ppParameters.kernel_close
+
+    # global thresh      
     blur = cv2.medianBlur(pred, kernel_blur)
-    glob_thresh_arr = cv2.threshold(blur, thresh, 1, cv2.THRESH_BINARY)[1]
+    glob_thresh_arr = cv2.threshold(blur, ppParameters.threshold, 1, cv2.THRESH_BINARY)[1]
     glob_thresh_arr_smooth = cv2.medianBlur(glob_thresh_arr, kernel_blur)
     mask_thresh = glob_thresh_arr_smooth      
 
     # opening and closing
-    # http://docs.opencv.org/3.0-beta/doc/py_tutorials/py_imgproc/py_morphological_ops/py_morphological_ops.html
-    #gradient = cv2.morphologyEx(mask_thresh, cv2.MORPH_GRADIENT, kernel)
     closing_t = cv2.morphologyEx(mask_thresh, cv2.MORPH_CLOSE, kernel_close)
     opening_t = cv2.morphologyEx(closing_t, cv2.MORPH_OPEN, kernel_open)
-
     blur = cv2.medianBlur(opening_t, kernel_blur)
     closing_t = cv2.morphologyEx(blur, cv2.MORPH_CLOSE, kernel_close)
     opening_t = cv2.morphologyEx(closing_t, cv2.MORPH_OPEN, kernel_open)
@@ -111,35 +108,32 @@ def postProcess(pred):
 
     return img
 
-def buildSkeleton(pred):
-    #params
-    replicate = 3 #replicate border
-    clip = 1
-    rec = replicate + clip
+def buildSkeleton(pred, ppParameters):
+    rec = ppParameters.replicate_pix + ppParameters.clip_pix
+
+    pred = cv2.copyMakeBorder(pred, ppParameters.replicate_pix, ppParameters.replicate_pix, 
+                                ppParameters.replicate_pix, ppParameters.replicate_pix, 
+                                cv2.BORDER_REPLICATE)  
+
+    ppPred = postProcess(pred, ppParameters)
 
     # convert to 255 ramge
     pred = pred * 255
     pred = pred.astype(np.uint8)
-
-    pred = cv2.copyMakeBorder(pred, replicate, replicate, replicate, 
-                                 replicate, cv2.BORDER_REPLICATE)  
-
-    ppPred = postProcess(pred)
     ske = skeletonize(ppPred).astype(np.uint16)
 
     ske = ske[rec:-rec, rec:-rec]
-    ske = cv2.copyMakeBorder(ske, clip, clip, clip, clip, cv2.BORDER_CONSTANT, value=0)
-    ppPred = ppPred[replicate:-replicate,replicate:-replicate]
+    ske = cv2.copyMakeBorder(ske, ppParameters.clip_pix, ppParameters.clip_pix,
+                             ppParameters.clip_pix, ppParameters.clip_pix, 
+                             cv2.BORDER_CONSTANT, value=0)
+    ppPred = ppPred[ ppParameters.replicate_pix: -ppParameters.replicate_pix, 
+                    ppParameters.replicate_pix: -ppParameters.replicate_pix ]
 
     return ppPred, ske
 
-def buildGraph(skeleton):
-    #params
-    pix_extent = 256
-    min_spur_length_pix = 10
+def buildGraph(skeleton, min_graph_length_pix, pix_extent):
 
     G = sknw.build_sknw(skeleton, multi=False)
-
-    #cleanUpGraph(G, pix_extent, min_spur_length_pix)
+    G = cleanUpSmallEdges(G, min_graph_length_pix, pix_extent)
 
     return G

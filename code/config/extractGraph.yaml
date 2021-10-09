@@ -7,3 +7,13 @@ paths:
 model: 
   backbones: ['resnet50', 'resnet50', 'inceptionresnetv2', 'vgg16']
   lr: 0.0001
+
+image_size: [256, 256]
+
+pp_parameters:
+  kernel_open: 5
+  kernel_close: 5
+  threshold: 0.5
+  replicate_pix: 3
+  clip_pix: 1
+  min_graph_length_pix: 10
