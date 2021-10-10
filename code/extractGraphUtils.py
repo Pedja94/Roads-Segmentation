@@ -7,10 +7,12 @@ import tensorflow as tf
 import matplotlib.pyplot as plt
 import numpy as np
 import cv2
+import math
 from skimage.morphology import skeletonize
 
 from graphUtils import sknw
 from graphUtils.utils import cleanUpSmallEdges
+
 
 def loadModel(modelsPath, modelsBackbone, modeLR): 
     sm.set_framework('tf.keras')
@@ -37,6 +39,7 @@ def loadModel(modelsPath, modelsBackbone, modeLR):
 
     return models, preprocessInputFs
 
+
 def getPrediction(img, models, preprocessInputFs):
     cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     predArray = []
@@ -53,7 +56,41 @@ def getPrediction(img, models, preprocessInputFs):
 
     return pred
 
-def showImages(imgList, graph = Undefined, graphOverImg = True, resultPath = './result.png'):
+
+def getPredictionLargeImage(img, models, preprocessInputFs, imgSize, tileSize, overalySize):
+    x_moves = math.floor(imgSize[0] / (tileSize-overalySize)) + 1
+    y_moves = math.floor(imgSize[1] / (tileSize-overalySize)) + 1
+    x_pos = 0
+    y_pos = 0
+    mask = np.zeros([imgSize[0], imgSize[1], 1])
+    mask_divider = np.zeros([imgSize[0], imgSize[1], 1])
+
+    for j in range(y_moves):
+        for i in range(x_moves):
+            imgTile = img[y_pos:y_pos+tileSize, x_pos:x_pos+tileSize]
+            maskTile = getPrediction(imgTile, models, preprocessInputFs)
+
+            mask[y_pos:y_pos+tileSize, x_pos:x_pos+tileSize, :] += maskTile[:, :, :]
+            mask_divider[y_pos:y_pos+tileSize, x_pos:x_pos+tileSize, :] += 1
+
+            if (i == x_moves - 2):
+                x_pos = imgSize[0] - tileSize
+            else:
+                x_pos += (tileSize-overalySize)
+        
+        if (j == y_moves - 2):
+            y_pos = imgSize[1] - tileSize
+        else:
+            y_pos += (tileSize-overalySize)
+
+        x_pos = 0
+
+    pred = np.divide(mask, mask_divider)
+
+    return pred.astype(np.float32), mask.astype(np.float32), mask_divider.astype(np.float32)
+
+
+def showImages(imgList, graph = Undefined, graphOverImg = True):
     fig = plt.figure(figsize=(16, 14))
     numOfImages = len(imgList)
 
@@ -77,10 +114,6 @@ def showImages(imgList, graph = Undefined, graphOverImg = True, resultPath = './
         ps = np.array([nodes[i]['o'] for i in nodes])
         if len(ps) != 0:
             plt.plot(ps[:,1], ps[:,0], 'b.')
-
-        #save result
-        extent = ax.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-        fig.savefig(resultPath, bbox_inches=extent)
 
     plt.show()
 
@@ -108,6 +141,7 @@ def postProcess(pred, ppParameters):
 
     return img
 
+
 def buildSkeleton(pred, ppParameters):
     rec = ppParameters.replicate_pix + ppParameters.clip_pix
 
@@ -130,6 +164,7 @@ def buildSkeleton(pred, ppParameters):
                     ppParameters.replicate_pix: -ppParameters.replicate_pix ]
 
     return ppPred, ske
+
 
 def buildGraph(skeleton, min_graph_length_pix, pix_extent):
 

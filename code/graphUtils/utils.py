@@ -15,13 +15,8 @@ def remove_small_terminal(G, weight='weight', min_weight_val=30,
     edges = list(G.edges())
     for s, e in edges:
         if s == e:
-            sum_len = 0
-            vals = flatten([[v] for v in G[s][s].values()])
-            for ix, val in enumerate(vals):
-                sum_len += len(val['pts'])
-            if sum_len < 3:
-                G.remove_edge(s, e)
-                continue
+            G.remove_edge(s, e)
+            continue
             
         # check if at edge
         sx, sy = G.nodes[s]['o']
