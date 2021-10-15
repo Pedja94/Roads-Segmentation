@@ -7,16 +7,21 @@ Authors:
   Predrag Nikolić
 
 Dataset is derived from kaggle competition. For purposes of this project all images and masks from train, val and test sets are combined into one dataset.
-Dataset can be divided into train, test and val in any given proportions. 
+Dataset can be divided into train, test and val in any given proportions.
+
+This project was later extended for purposes of road network extraction from satellite imagery. One main script was added for this purpose. 
+
+Author:
+	Predrag Nikolić
 
 Install dependencies:
 ```python
 pip install -r req.txt
 ```
 
-Result of project can be seen in *Data Visualization.ipynb*
+Result of training experiments can be seen in *Data Visualization.ipynb*
 
-There are three main scripts:
+There are four main scripts:
 *deleteWhiteImages.py* - delete incomplete images that have complete masks, name of images are stored in imgList.txt
 *config/deleteWhiteImages.yaml* 
 ```yaml
@@ -78,4 +83,28 @@ outputs: (trainnig outputs)
   model: 'best_model.h5'
   log: 'log.csv'
   modelSummary: 'modelSummary.txt'
+```
+
+*extractGraph.py* - extract road network from satellite imagery
+*config/extractGraph.yaml* 
+```yaml
+paths:
+  images: path to input images
+  results: path to output images
+  models: list of paths to segmentation models
+
+model: 
+  backbones: list of pretrained models for encoder (models from segmentation lib:'resnet50', 'resnet34'...)
+  lr: 0.0001
+
+image_size: [256, 256, 3]
+
+pp_parameters:
+  tile_overlay: 25
+  kernel_open: 5
+  kernel_close: 5
+  threshold: 0.5
+  replicate_pix: 3
+  clip_pix: 1
+  min_graph_length_pix: 10
 ```
